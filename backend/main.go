@@ -6,11 +6,18 @@ import (
 	"log"
 
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	// Load .env file
+	 _ = godotenv.Load()
+	 
 	// Initialize database
 	config.InitDB()
+
+	// Initialize storage
+	config.InitStorage()
 
 	// Create Gin router
 	router := gin.Default()
