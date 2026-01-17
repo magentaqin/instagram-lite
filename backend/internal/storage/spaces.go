@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 )
 
 type SpacesUploader struct {
@@ -56,6 +57,7 @@ func (u *SpacesUploader) PutJPEG(ctx context.Context, key string, body []byte) (
 		Body:         bytes.NewReader(body),
 		ContentType:  aws.String("image/jpeg"),
 		CacheControl: aws.String("public, max-age=31536000, immutable"), // one year caching 
+		ACL:          types.ObjectCannedACLPublicRead,
 	})
 	if err != nil {
 		return "", err
