@@ -1,0 +1,193 @@
+openapi: 3.0.3
+info:
+  title: Instagram-lite API
+  version: 0.1.0
+  description: Minimal API for an Instagram-like feed (anonymous, no auth).
+
+servers:
+  - url: http://localhost:8080
+
+paths:
+  /uploads:
+    post:
+      summary: Upload an image and return its public URL
+      description: |
+        Uploads an image via multipart/form-data.
+        The server center-crops to a square and resizes to 512x512, then stores it in S3-compatible object storage.
+        Returns the public image URL.
+      operationId: uploadImage
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+            encoding:
+              file:
+                contentType: image/jpeg, image/png
+      responses:
+        "201":
+          description: Uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadResponse"
+              examples:
+                success:
+                  value:
+                    image_url: "https://instagram-lite-images.fra1.cdn.digitaloceanspaces.com/uploads/01JH8ZK9Q6R6YB8Z5Y0S8R4WQ2.jpg"
+        "400":
+          description: Invalid request (missing file, unsupported type, decode failed)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                invalid:
+                  value:
+                    error: "invalid image"
+        "413":
+          description: File too large
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                tooLarge:
+                  value:
+                    error: "file too large"
+        "502":
+          description: Storage provider error (e.g., Spaces/S3 upload failure)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                storageError:
+                  value:
+                    error: "upload to storage failed"
+
+  /posts:
+    post:
+      summary: Create a post
+      description: |
+        Creates a post referencing an existing image_url (typically returned by POST /uploads).
+        Anonymous (no auth). Tags are optional; server may normalize tags (trim/lowercase/dedupe).
+      operationId: createPost
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePostRequest"
+            examples:
+              example:
+                value:
+                  title: "My first post"
+                  image_url: "https://instagram-lite-images.fra1.cdn.digitaloceanspaces.com/uploads/01JH8ZK9Q6R6YB8Z5Y0S8R4WQ2.jpg"
+                  tags: ["anime", "cute", "healing"]
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostResponse"
+              examples:
+                created:
+                  value:
+                    post:
+                      id: "01JH8ZQZP4V2W3G0M2XQ4Z8Y6A"
+                      title: "My first post"
+                      image_url: "https://instagram-lite-images.fra1.cdn.digitaloceanspaces.com/uploads/01JH8ZK9Q6R6YB8Z5Y0S8R4WQ2.jpg"
+                      tags: ["anime", "cute", "healing"]
+                      created_at: "2026-01-17T13:58:12Z"
+        "400":
+          description: Validation error (missing fields, invalid URL, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                badRequest:
+                  value:
+                    error: "title is required"
+        "500":
+          description: Server/database error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                dbError:
+                  value:
+                    error: "db error"
+
+components:
+  schemas:
+    UploadResponse:
+      type: object
+      required: [image_url]
+      properties:
+        image_url:
+          type: string
+          format: uri
+          description: Public URL to the processed (512x512) image stored in object storage.
+
+    CreatePostRequest:
+      type: object
+      required: [title, image_url]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        image_url:
+          type: string
+          format: uri
+          description: The URL returned by POST /uploads.
+        tags:
+          type: array
+          maxItems: 10
+          items:
+            type: string
+            minLength: 1
+            maxLength: 32
+
+    PostResponse:
+      type: object
+      required: [post]
+      properties:
+        post:
+          $ref: "#/components/schemas/Post"
+
+    Post:
+      type: object
+      required: [id, title, image_url, tags, created_at]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        image_url:
+          type: string
+          format: uri
+        tags:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
