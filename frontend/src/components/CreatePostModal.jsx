@@ -122,7 +122,7 @@ function CreatePostModal({ isOpen, onClose, onPostCreated }) {
       }
 
       resetState();
-      onPostCreated();
+      onPostCreated(data);
       onClose();
     } catch (err) {
       setError(err.message);
