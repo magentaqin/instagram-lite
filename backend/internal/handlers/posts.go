@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/gin-gonic/gin"
 	"github.com/oklog/ulid/v2"
@@ -35,6 +36,8 @@ type PostResponse struct {
 // Handler for create post
 func (h *PostsHandler) CreatePost(c *gin.Context) {
 	var req CreatePostRequest
+	const MaxTitleRunes = 120
+
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid json"})
 		return
@@ -51,6 +54,12 @@ func (h *PostsHandler) CreatePost(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "title is required"})
 		return
 	}
+
+
+  if utf8.RuneCountInString(req.Title) > MaxTitleRunes {
+    c.JSON(http.StatusBadRequest, gin.H{"error": "title too long (max 120 chars)"})
+    return
+  }
 
 	// Normalize tags: trim, lowercase, bytes limit, dedupe, 
 	tags := normalizeTags(req.Tags)
