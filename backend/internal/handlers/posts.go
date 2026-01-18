@@ -2,12 +2,12 @@ package handlers
 
 import (
 	"database/sql"
-	"errors"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/oklog/ulid/v2"
 )
 
 type PostsHandler struct {
@@ -25,7 +25,7 @@ type CreatePostRequest struct {
 }
 
 type PostResponse struct {
-	ID        int64    `json:"id"`
+	ID        string    `json:"id"`
 	ImageURL  string   `json:"image_url"`
 	Title     string   `json:"title"`
 	Tags      []string `json:"tags"`
@@ -68,7 +68,6 @@ func (h *PostsHandler) CreatePost(c *gin.Context) {
 	c.JSON(http.StatusCreated, post)
 }
 
-// Create Post Transaction
 func (h *PostsHandler) createPostTx(c *gin.Context, imageURL, title string, tags []string) (*PostResponse, error) {
 	// start transaction
 	tx, err := h.db.BeginTx(c.Request.Context(), &sql.TxOptions{})
@@ -79,23 +78,27 @@ func (h *PostsHandler) createPostTx(c *gin.Context, imageURL, title string, tags
 	// rollback if not committed
 	committed := false
 	defer func() {
-  if !committed {
-    _ = tx.Rollback()
-  }
-}()
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
 
 	createdAt := time.Now().UTC().Format(time.RFC3339Nano)
-	// 1) Insert post
+
+	// Generate public post id (do NOT expose auto-increment id to clients)
+	publicPostID := ulid.Make().String()
+
+	// 1) Insert post 
 	res, err := tx.ExecContext(
 		c.Request.Context(),
-		`INSERT INTO posts (image_url, title, created_at) VALUES (?, ?, ?)`,
-		imageURL, title, createdAt,
+		`INSERT INTO posts (post_id, image_url, title, created_at) VALUES (?, ?, ?, ?)`,
+		publicPostID, imageURL, title, createdAt,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	postID, err := res.LastInsertId()
+	postDBID, err := res.LastInsertId()
 	if err != nil {
 		return nil, err
 	}
@@ -120,12 +123,12 @@ func (h *PostsHandler) createPostTx(c *gin.Context, imageURL, title string, tags
 			return nil, err
 		}
 
-		// post_tags also should have UNIQUE(post_id, tag_id)
+		// post_tags primary key: (post_db_id, tag_id)
 		// "ON CONFLICT DO NOTHING" is used to avoid duplicate insertions (such as duplicates in tags or duplicate requests).
 		if _, err := tx.ExecContext(
 			c.Request.Context(),
-			`INSERT INTO post_tags (post_id, tag_id) VALUES (?, ?) ON CONFLICT(post_id, tag_id) DO NOTHING`,
-			postID, tagID,
+			`INSERT INTO post_tags (post_db_id, tag_id) VALUES (?, ?) ON CONFLICT(post_db_id, tag_id) DO NOTHING`,
+			postDBID, tagID,
 		); err != nil {
 			return nil, err
 		}
@@ -134,11 +137,11 @@ func (h *PostsHandler) createPostTx(c *gin.Context, imageURL, title string, tags
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
-
 	committed = true
 
 	return &PostResponse{
-		ID:        postID,
+		// it's the public id, not the internal auto-increment id
+		ID:        publicPostID,
 		ImageURL:  imageURL,
 		Title:     title,
 		Tags:      tags,
@@ -169,9 +172,4 @@ func normalizeTags(input []string) []string {
 		output = append(output, t)
 	}
 	return output
-}
-
-// optional helper if you want to distinguish some DB errors later
-func isConstraintErr(err error) bool {
-	return err != nil && (errors.Is(err, sql.ErrNoRows))
 }
