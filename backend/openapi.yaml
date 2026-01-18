@@ -8,7 +8,7 @@ servers:
   - url: http://localhost:8080
 
 paths:
-  /uploads:
+  /api/v1/uploads:
     post:
       summary: Upload an image and return its public URL
       description: |
@@ -72,7 +72,7 @@ paths:
                   value:
                     error: "upload to storage failed"
 
-  /posts:
+  /api/v1/posts:
     post:
       summary: Create a post
       description: |
@@ -127,7 +127,79 @@ paths:
                 dbError:
                   value:
                     error: "db error"
-
+    get:
+      summary: List posts (infinite scroll)
+      description: >
+        Returns posts ordered by newest first. Supports cursor-based pagination and optional
+        fuzzy tag filtering.
+      tags:
+        - Posts
+      parameters:
+        - name: cursor
+          in: query
+          description: >
+            Opaque pagination cursor from a previous response (next_cursor). If omitted, returns the first page.
+          required: false
+          schema:
+            type: string
+          example: "eyJjcmVhdGVkX2F0IjoiMjAyNi0wMS0xOFQxNDowMDowMC4wMDBaIiwiZGJfaWQiOjEyM30="
+        - name: limit
+          in: query
+          description: Number of items to return. Defaults to 20. Max 50.
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+          example: 20
+        - name: tag
+          in: query
+          description: >
+            Optional tag filter (fuzzy match). Example: "cat" matches tags containing "cat".
+          required: false
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 32
+          example: "cat"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListPostsResponse"
+              example:
+                items:
+                  - id: "01KF6R33JQQS24SHNX1BSMG462"
+                    title: "My first post"
+                    image_url: "https://instagram-lite-images.fra1.cdn.digitaloceanspaces.com/uploads/01KF6R33JQQS24SHNX1BSMG462.jpg"
+                    tags: ["cat", "cute"]
+                    created_at: "2026-01-18T14:00:00Z"
+                  - id: "01KF6R40Y3K3KZ2J2Q9FQG3JZP"
+                    title: "Another post"
+                    image_url: "https://instagram-lite-images.fra1.cdn.digitaloceanspaces.com/uploads/01KF6R40Y3K3KZ2J2Q9FQG3JZP.jpg"
+                    tags: []
+                    created_at: "2026-01-18T13:55:12Z"
+                next_cursor: "eyJjcmVhdGVkX2F0IjoiMjAyNi0wMS0xOFQxMzo1NToxMi4wMDBaIiwiZGJfaWQiOjEyMX0="
+                has_more: true
+        "400":
+          description: Invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "invalid limit"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "internal server error"
 components:
   schemas:
     UploadResponse:
@@ -184,6 +256,22 @@ components:
         created_at:
           type: string
           format: date-time
+    ListPostsResponse:
+      type: object
+      required: [items, next_cursor, has_more]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Post"
+        next_cursor:
+          type: string
+          nullable: true
+          description: Cursor to fetch the next page. Null when no more results.
+          example: "eyJjcmVhdGVkX2F0IjoiMjAyNi0wMS0xOFQxMzo1NToxMi4wMDBaIiwiZGJfaWQiOjEyMX0="
+        has_more:
+          type: boolean
+          example: true
 
     ErrorResponse:
       type: object
