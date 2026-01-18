@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -57,11 +58,12 @@ func (h *UploadHandler) Upload(c *gin.Context) {
 	}
 
 	// Generate image key and upload it to S3
+	// TODO: Add a background job to clean up orphan uploads (images uploaded but never referenced by a post).
 	uploadID := ulid.Make().String()
 	key := fmt.Sprintf("uploads/%s.jpg", uploadID)
-
 	publicURL, err := h.uploader.PutJPEG(ctx, key, jpegBytes)
 	if err != nil {
+		log.Printf("spaces upload failed: %v", err)
 		c.JSON(http.StatusBadGateway, gin.H{"error": "upload image failed"})
 		return
 	}
