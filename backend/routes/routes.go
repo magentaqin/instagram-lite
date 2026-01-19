@@ -5,6 +5,7 @@ import (
 
 	"instagram-lite-backend/config"
 	"instagram-lite-backend/internal/handlers"
+	"instagram-lite-backend/internal/realtime"
 
 	"github.com/gin-gonic/gin"
 )
@@ -31,8 +32,17 @@ func SetupRoutes(router *gin.Engine) {
     })
   }
 
+  // Websocket hub (must be created before postsHandler)
+  hub := realtime.NewHub()
+
   // Post routes
-  postsHandler := handlers.NewPostsHandler(config.DB) 
+  postsHandler := handlers.NewPostsHandler(config.DB, hub)
   v1.POST("/posts", postsHandler.CreatePost)
   v1.GET("/posts", postsHandler.ListPosts)
+
+  // Websocket route
+  wsHandler := handlers.NewWSHandler(hub)
+  v1.GET("/ws", func(c *gin.Context) {
+    wsHandler.ServeWS(c.Writer, c.Request)
+  })
 }
