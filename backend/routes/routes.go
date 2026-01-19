@@ -34,4 +34,5 @@ func SetupRoutes(router *gin.Engine) {
   // Post routes
   postsHandler := handlers.NewPostsHandler(config.DB) 
   v1.POST("/posts", postsHandler.CreatePost)
+  v1.GET("/posts", postsHandler.ListPosts)
 }
