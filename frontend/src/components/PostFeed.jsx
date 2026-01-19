@@ -71,10 +71,15 @@ function PostFeed({ newPost, searchQuery }) {
     [loading, hasMore, fetchPosts]
   );
 
-  // Listen for new post event
+  // Listen for new post event (dedupe by id to handle both HTTP response and WebSocket)
   useEffect(() => {
     if (newPost) {
-      setPosts((prev) => [newPost, ...prev]);
+      setPosts((prev) => {
+        if (prev.some((p) => p.id === newPost.id)) {
+          return prev;
+        }
+        return [newPost, ...prev];
+      });
     }
   }, [newPost]);
 
