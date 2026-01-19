@@ -7,16 +7,19 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"instagram-lite-backend/internal/realtime"
+
 	"github.com/gin-gonic/gin"
 	"github.com/oklog/ulid/v2"
 )
 
 type PostsHandler struct {
-	db *sql.DB
+	db  *sql.DB
+	hub *realtime.Hub
 }
 
-func NewPostsHandler(db *sql.DB) *PostsHandler {
-	return &PostsHandler{db: db}
+func NewPostsHandler(db *sql.DB, hub *realtime.Hub) *PostsHandler {
+	return &PostsHandler{db: db, hub: hub}
 }
 
 type CreatePostRequest struct {
@@ -73,6 +76,14 @@ func (h *PostsHandler) CreatePost(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "create post failed"})
 		return
 	}
+	// WS broadcast only after DB commit succeeded
+	h.hub.BroadcastPostCreated(realtime.PostItem{
+		ID:        post.ID,
+		Title:     post.Title,
+		ImageURL:  post.ImageURL,
+		Tags:      post.Tags,
+		CreatedAt: post.CreatedAt,
+	})
 
 	c.JSON(http.StatusCreated, post)
 }

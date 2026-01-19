@@ -10,8 +10,16 @@ import (
 
 
 type Message struct {
-	Type string      `json:"type"` // e.g. "post_created" “ping” "error"
+	Type string      `json:"type"` // e.g. "post_created" "ping" "error"
 	Data interface{} `json:"data"`
+}
+
+type PostItem struct {
+	ID        string   `json:"id"`
+	Title     string   `json:"title"`
+	ImageURL  string   `json:"image_url"`
+	Tags      []string `json:"tags"`
+	CreatedAt string   `json:"created_at"`
 }
 
 // server-side representation of a connected WebSocket peer
