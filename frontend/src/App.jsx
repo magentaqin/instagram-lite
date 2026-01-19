@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import PostFeed from './components/PostFeed';
 import CreatePostModal from './components/CreatePostModal';
 
@@ -7,6 +7,85 @@ function App() {
   const [successMessage, setSuccessMessage] = useState('');
   const [newPost, setNewPost] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+  const wsRef = useRef(null);
+
+  // WebSocket connection for real-time updates
+  useEffect(() => {
+  let isMounted = true;
+  let reconnectTimer = null;
+
+  const connectWebSocket = () => {
+    if (!isMounted) return;
+
+    // Prevent duplicate connections (OPEN or CONNECTING)
+    const existing = wsRef.current;
+    if (
+      existing &&
+      (existing.readyState === WebSocket.OPEN ||
+        existing.readyState === WebSocket.CONNECTING)
+    ) {
+      return;
+    }
+    // TODO. development mode only localhost.
+    const ws = new WebSocket("ws://localhost:8080/api/v1/ws");
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      console.log("WebSocket connected");
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const message = JSON.parse(event.data);
+        if (message.type === "post_created" && message.data) {
+          setNewPost(message.data);
+        }
+      } catch (err) {
+        console.error("Failed to parse WebSocket msg:", err);
+      }
+    };
+
+    ws.onerror = (err) => {
+      console.error("WebSocket error:", err);
+    };
+
+    ws.onclose = () => {
+      wsRef.current = null; 
+      if (isMounted) {
+        reconnectTimer = setTimeout(connectWebSocket, 3000);
+      }
+    };
+  };
+
+  connectWebSocket();
+
+  return () => {
+    isMounted = false;
+
+    if (reconnectTimer) clearTimeout(reconnectTimer);
+
+    const ws = wsRef.current;
+    wsRef.current = null;
+
+    if (
+      ws &&
+      (ws.readyState === WebSocket.OPEN ||
+        ws.readyState === WebSocket.CONNECTING)
+    ) {
+      ws.close();
+    }
+  };
+}, []);
+
+  // Debounce search query by 300ms
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const handlePostCreated = (post) => {
     setNewPost(post);
@@ -57,7 +136,7 @@ function App() {
 
       {/* Feed */}
       <main className="max-w-lg mx-auto px-4 py-6 pb-24">
-        <PostFeed newPost={newPost} searchQuery={searchQuery} />
+        <PostFeed newPost={newPost} searchQuery={debouncedSearchQuery} />
       </main>
 
       {/* Floating Create Button */}
