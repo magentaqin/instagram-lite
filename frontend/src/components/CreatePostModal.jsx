@@ -101,6 +101,13 @@ function CreatePostModal({ isOpen, onClose, onPostCreated }) {
       return;
     }
 
+    // Include pending tag input if exists(so user don't have to click "Add Tag")
+    let finalTags = [...tags];
+    const pendingTag = tagInput.trim();
+    if (pendingTag && pendingTag.length <= 16 && finalTags.length < 10 && !finalTags.includes(pendingTag)) {
+      finalTags.push(pendingTag);
+    }
+
     // Set Loading state
     setPosting(true);
     // Clear error in previous validation
@@ -112,7 +119,7 @@ function CreatePostModal({ isOpen, onClose, onPostCreated }) {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ image_url: imageUrl, title, tags }),
+        body: JSON.stringify({ image_url: imageUrl, title: title.trim(), tags: finalTags }),
       });
 
       const data = await res.json();
