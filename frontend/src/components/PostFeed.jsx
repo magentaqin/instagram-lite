@@ -78,10 +78,20 @@ function PostFeed({ newPost, searchQuery }) {
         if (prev.some((p) => p.id === newPost.id)) {
           return prev;
         }
+        // Apply fuzzy filter in frontend if search query is active(filter items pushed by websocket)
+        const query = searchQuery?.trim().toLowerCase();
+        if (query) {
+          const matchesTag = newPost.tags?.some((tag) =>
+            tag.toLowerCase().includes(query)
+          );
+          if (!matchesTag) {
+            return prev;
+          }
+        }
         return [newPost, ...prev];
       });
     }
-  }, [newPost]);
+  }, [newPost, searchQuery]);
 
   // Fetch posts on mount and when search query changes
   useEffect(() => {
