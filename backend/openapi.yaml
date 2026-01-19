@@ -200,6 +200,29 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
               example:
                 error: "internal server error"
+  /api/v1/ws:
+    get:
+      summary: WebSocket stream for feed updates
+      description: >
+        Upgrades the HTTP connection to WebSocket. The server broadcasts events when
+        a post is created.
+      tags: [Realtime]
+      x-websocket:
+        outbound:
+          $ref: "#/components/schemas/WsMessage"
+      responses:
+        "101":
+          description: Switching Protocols (WebSocket upgrade)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WsMessage"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   schemas:
     UploadResponse:
@@ -272,6 +295,19 @@ components:
         has_more:
           type: boolean
           example: true
+    WSMessage:
+      type: object
+      required:
+        - type
+        - data
+      properties:
+        type:
+          type: string
+          description: Event type
+          enum: [post_created]
+          example: post_created
+        data:
+          $ref: "#/components/schemas/Post"
 
     ErrorResponse:
       type: object
