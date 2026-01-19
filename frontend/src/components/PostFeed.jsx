@@ -5,6 +5,7 @@ function PostFeed({ newPost, searchQuery }) {
   const [cursor, setCursor] = useState(null);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [error, setError] = useState('');
   // To get the sentinel DOM node
   const observerRef = useRef();
 
@@ -45,6 +46,8 @@ function PostFeed({ newPost, searchQuery }) {
       setHasMore(data.has_more || false);
     } catch (err) {
       console.error('Failed to fetch posts:', err);
+      setError('Failed to load posts');
+      setTimeout(() => setError(''), 3000);
     } finally {
       setLoading(false);
     }
@@ -167,6 +170,12 @@ function PostFeed({ newPost, searchQuery }) {
       {loading && (
         <div className="flex justify-center py-4">
           <div className="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      )}
+
+      {error && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-red-100 text-red-700 px-4 py-2 rounded-lg shadow-md text-sm whitespace-nowrap">
+          {error}
         </div>
       )}
     </div>
