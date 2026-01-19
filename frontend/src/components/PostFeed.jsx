@@ -1,5 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
+// Temporary way: Make mock post IDs unique by appending timestamp
+const ensureUniqueId = (post) => {
+  if (post.id?.startsWith('mock-')) {
+    return { ...post, id: `${post.id}-${Date.now()}` };
+  }
+  return post;
+};
+
 function PostFeed({ newPost, searchQuery }) {
   const [posts, setPosts] = useState([]);
   const [cursor, setCursor] = useState(null);
@@ -35,11 +43,14 @@ function PostFeed({ newPost, searchQuery }) {
         throw new Error(data.error || 'Failed to fetch posts');
       }
 
+      // Make mock post IDs unique
+      const items = (data.items || []).map(ensureUniqueId);
+
       // if search query changes, reset it. or, we just append them.
       if (isNewSearch) {
-        setPosts(data.items || []);
+        setPosts(items);
       } else {
-        setPosts((prev) => [...prev, ...(data.items || [])]);
+        setPosts((prev) => [...prev, ...items]);
       }
 
       setCursor(data.next_cursor || null);
@@ -75,7 +86,8 @@ function PostFeed({ newPost, searchQuery }) {
   useEffect(() => {
     if (newPost) {
       setPosts((prev) => {
-        if (prev.some((p) => p.id === newPost.id)) {
+        // For non-mock posts, check for duplicates
+        if (!newPost.id?.startsWith('mock-') && prev.some((p) => p.id === newPost.id)) {
           return prev;
         }
         // Apply fuzzy filter in frontend if search query is active(filter items pushed by websocket)
@@ -88,7 +100,7 @@ function PostFeed({ newPost, searchQuery }) {
             return prev;
           }
         }
-        return [newPost, ...prev];
+        return [ensureUniqueId(newPost), ...prev];
       });
     }
   }, [newPost, searchQuery]);
