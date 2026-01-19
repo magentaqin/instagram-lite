@@ -2,6 +2,9 @@
 
 A lightweight Instagram-like application with image uploads, post creation with tags, infinite scrolling feed, fuzzy tag search, and real-time updates via WebSocket.
 
+
+<img src="./docs/demo.gif" alt="API Design" width="320" />
+
 ---
 
 ## Features
